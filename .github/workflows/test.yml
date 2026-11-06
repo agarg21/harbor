@@ -33,9 +33,20 @@ on:
 
 jobs:
   matrix:
-    name: harbor dev test
+    name: harbor dev test (${{ matrix.row }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        row: [alpine-3, archlinux, debian-12, rocky-9, ubuntu-2204]
+        suites: ["install,cli,smoke,integration,launch-smoke"]
+        include:
+          # Heavy suites stay pinned to the rows HEAVY_SUITE_DEFAULTS picks.
+          - row: fedora-43
+            suites: install,cli,smoke,integration,launch-smoke,boost-agentic-smoke
+          - row: ubuntu-2404
+            suites: install,cli,smoke,integration,launch-smoke,defaults-up,speaches-webui
 
     steps:
       - name: Checkout
@@ -66,12 +77,12 @@ jobs:
         # exit 1 even on a fully passing matrix).
         run: |
           mkdir -p tests/artifacts
-          bash harbor.sh dev test --install-source local --json | tee tests/artifacts/run.json
+          bash harbor.sh dev test --install-source local --distros "${{ matrix.row }}" --suite "${{ matrix.suites }}" --json | tee tests/artifacts/run.json
 
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-artifacts-${{ github.run_id }}
+          name: test-artifacts-${{ github.run_id }}-${{ matrix.row }}
           path: tests/artifacts/
           retention-days: 14
